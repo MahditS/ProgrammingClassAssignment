@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Mini Shop</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1> Admin Login </h1>
+    <p> Type in admin password</p>
+
+    <form action="/login" method="post">
+        <label>Password</label>
+        <input type="text" name="passcode" required>
+        <button type="submit">Login</button>
+
+    </form>
+
+<h1>Mini Shop</h1>
+<p>Select an item and quantity to add to your cart.</p>
+
+<form action="/add" method="post">
+
+<label>Item</label>
+<select name="item">
+{% for item, price in menu.items() %}
+<option value="{{item}}">{{item}} - ${{price}}</option>
+{% endfor %}
+</select>
+
+<label>Quantity</label>
+<input type="number" name="quantity" required>
+
+<button type="submit">Add To Cart</button>
+
+</form>
+
+
+
+<a class="link" href="/cart">View Cart</a>
+
+</div>
+
+</body>
+</html>

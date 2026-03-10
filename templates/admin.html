@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Mini Shop</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+
+<h1>Admin Page</h1>
+<p>Create new menu items</p>
+
+<form action="/addMenu" method="post">
+
+<label>Item Name</label>
+<input type="text" name="itemName" required>
+
+<label>Cost</label>
+<input type="number" step="0.01" name="price" required>
+
+<button type="submit">Add Item To Menu</button>
+
+</form>
+
+
+
+<a class="link" href="/">Return Home</a>
+
+</div>
+
+</body>
+</html>

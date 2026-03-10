@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Order Complete</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Order Complete</h1>
+
+<p>Thank you {{name}}!</p>
+<p>Your total was ${{final_cost}}</p>
+
+<a class="link" href="/">Start New Order</a>
+
+</div>
+
+</body>
+</html>
