@@ -74,7 +74,7 @@ def add_item():
     return redirect("/cart")
 
 
-#renders the
+#renders the cart page and what is inside it
 @app.route("/cart")
 def view_cart():
     total_cost = sum(item["total"] for item in cart)
@@ -82,6 +82,7 @@ def view_cart():
     final_cost = round(total_cost - tax,2)
     return render_template("cart.html", cart=cart, total=total_cost, tax=tax, final_cost=final_cost)
 
+#the checkout action, redirecting to the checkout page and calculating sums
 @app.route("/checkout", methods=["POST"])
 def checkout():
     name = request.form.get("name")
