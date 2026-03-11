@@ -79,7 +79,7 @@ def add_item():
 def view_cart():
     total_cost = sum(item["total"] for item in cart)
     tax = round(0.12 * total_cost,2)
-    final_cost = round(total_cost - tax,2)
+    final_cost = round(total_cost + tax,2)
     return render_template("cart.html", cart=cart, total=total_cost, tax=tax, final_cost=final_cost)
 
 #the checkout action, redirecting to the checkout page and calculating sums
@@ -92,7 +92,7 @@ def checkout():
 
     total_cost = round(sum(item["total"] for item in cart), 2)
     tax = round(0.12 * total_cost, 2)
-    final_cost = round(total_cost - tax, 2)
+    final_cost = round(total_cost + tax, 2)
 
     cart.clear()
 
