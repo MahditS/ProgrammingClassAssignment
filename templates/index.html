@@ -1,48 +1,492 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Mini Shop</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>JohalTunes</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-<div class="container">
+<div class="app">
 
-    <h1> Admin Login </h1>
-    <p> Type in admin password</p>
+    <div class="header">
+        <h1>🎧 JohalTunes</h1>
+        <button class="reset-btn" onclick="resetApp()">Reset App</button>
+    </div>
 
-    <form action="/login" method="post">
-        <label>Password</label>
-        <input type="text" name="passcode" required>
-        <button type="submit">Login</button>
+    <div class="music-container">
 
-    </form>
+        <!-- TRACK LIST -->
+        <div class="track-list">
 
-<h1>Mini Shop</h1>
-<p>Select an item and quantity to add to your cart.</p>
+            <div class="track-header">
+                <h2>Tracks</h2>
 
-<form action="/add" method="post">
+                <select id="filterSelect" onchange="renderTracks()">
+                    <option value="all">All Songs</option>
+                    <option value="liked">Liked Songs</option>
+                </select>
+            </div>
 
-<label>Item</label>
-<select name="item">
-{% for item, price in menu.items() %}
-<option value="{{item}}">{{item}} - ${{price}}</option>
-{% endfor %}
-</select>
+            <div id="tracksContainer"></div>
 
-<label>Quantity</label>
-<input type="number" name="quantity" required>
+        </div>
 
-<button type="submit">Add To Cart</button>
+        <!-- QUEUE -->
+        <div class="queue">
 
-</form>
+            <h2>Queue</h2>
 
+            <ul id="queueList"></ul>
 
+        </div>
 
-<a class="link" href="/cart">View Cart</a>
+    </div>
+
+    <!-- OVERLAY FORM -->
+    <div id="overlayBackdrop" class="overlay-backdrop" onclick="closePlaylistFormBackdrop(event)"></div>
+    <div id="overlayForm" class="overlay-form"></div>
+
+    <!-- PLAYER -->
+    <div class="player">
+
+        <audio id="audioPlayer" controls>
+            Your browser does not support audio.
+        </audio>
+
+        <div class="controls">
+
+            <button onclick="playNext()">
+                Next ▶
+            </button>
+
+            <button onclick="clearQueue()">
+                Clear Queue
+            </button>
+
+            <a href="/logout">
+                Logout
+            </a>
+
+        </div>
+
+    </div>
 
 </div>
+
+<script>
+    
+let queue = [];
+
+let currentIndex = -1;
+
+const tracks = {{ tracks | tojson }};
+
+let likedSongs =
+    JSON.parse(localStorage.getItem("likedSongs")) || [];
+
+let playlists =
+    JSON.parse(localStorage.getItem("playlists")) || [];
+
+
+function renderTracks() {
+
+    const container =
+        document.getElementById("tracksContainer");
+
+    const filterElement = document.getElementById("filterSelect");
+
+    // save current selected option
+const currentValue = filterElement.value;
+
+// reset dropdown
+filterElement.innerHTML = `
+    <option value="all">All Songs</option>
+    <option value="liked">Liked Songs</option>
+`;
+
+playlists.forEach(playlist =>
+{
+    const op = document.createElement("option");
+
+    op.value = playlist;
+    op.textContent = playlist;
+
+    filterElement.appendChild(op);
+});
+
+// restore selected option
+filterElement.value = currentValue;
+
+    const filter =
+        document.getElementById("filterSelect").value;
+
+
+
+    container.innerHTML = "";
+
+    let filteredTracks = tracks;
+
+    if (filter === "liked") {
+        filteredTracks = tracks.filter(track =>
+            likedSongs.includes(track.id)
+        );
+    } else if (filter !== "all") {
+        let f = JSON.parse(localStorage.getItem(filter)) || [];
+        filteredTracks = tracks.filter(track =>
+            f.includes(track.id)
+        );
+    }
+
+    filteredTracks.forEach(track => {
+
+        const div = document.createElement("div");
+
+        div.className = "track";
+
+
+        // SONG NAME
+        const songName = document.createElement("span");
+
+        songName.textContent = track.name;
+
+        songName.onclick = () => {
+            addToQueue(track.id, track.name);
+        };
+
+
+        // LIKE BUTTON
+        const likeBtn = document.createElement("button");
+
+        if (likedSongs.includes(track.id)) {
+            likeBtn.innerHTML = "❤️";
+        }
+        else {
+            likeBtn.innerHTML = "🤍";
+        }
+
+        likeBtn.onclick = (e) => {
+
+            e.stopPropagation();
+
+            toggleLike(track.id);
+        };
+
+        //Add to playlist
+        const playList = document.createElement("button");
+
+        playList.innerHTML = "➕";
+
+
+        playList.onclick = (e) => {
+
+            e.stopPropagation();
+
+            playListAdder(track.id, track.name);
+        };
+
+
+        div.appendChild(songName);
+
+        div.appendChild(likeBtn);
+
+        div.appendChild(playList);
+
+        container.appendChild(div);
+
+    });
+}
+
+function closePlaylistForm() {
+    document.getElementById("overlayForm").innerHTML = "";
+    document.getElementById("overlayBackdrop").style.display = "none";
+}
+
+function closePlaylistFormBackdrop(event) {
+    // Only close if clicking directly on backdrop, not on the form content
+    if (event.target === event.currentTarget) {
+        closePlaylistForm();
+    }
+}
+
+function playListAdder(trackId, trackName) {
+
+    const container =
+        document.getElementById("overlayForm");
+
+    const backdrop =
+        document.getElementById("overlayBackdrop");
+
+    container.innerHTML = "";
+    backdrop.style.display = "block";
+
+    const formContent = document.createElement("div");
+    formContent.className = "playlist-form-content";
+    formContent.onclick = (e) => e.stopPropagation();
+
+    const title = document.createElement("h3");
+    title.textContent = "Add to Playlist";
+    formContent.appendChild(title);
+
+    const playlistList = document.createElement("div");
+    playlistList.className = "playlist-list";
+
+    playlists.forEach(playlist => {
+        const div = document.createElement("div");
+        div.className = "playlist-item";
+
+        const playListName = document.createElement("span");
+        playListName.textContent = playlist;
+
+        playListName.onclick = () => {
+            addToPlaylist(trackId, trackName, playlist);
+            closePlaylistForm();
+        };
+
+        div.appendChild(playListName);
+        playlistList.appendChild(div);
+    });
+
+    formContent.appendChild(playlistList);
+
+    // Create a new input element
+    const inputContainer = document.createElement("div");
+    inputContainer.className = "input-group";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.name = "playlistName";
+    input.placeholder = "New Playlist Name";
+
+    const create = document.createElement("button");
+    create.className = "create-btn";
+    create.textContent = "Create";
+    create.onclick = (e) => {
+        e.stopPropagation();
+
+        // don't allow empty names
+        if (input.value.trim() === "") return;
+
+        // avoid duplicates
+        if (!playlists.includes(input.value)) {
+            playlists.push(input.value);
+
+            localStorage.setItem(
+                "playlists",
+                JSON.stringify(playlists)
+            );
+
+            addToPlaylist(trackId, trackName, input.value)
+            closePlaylistForm();
+        }
+
+        renderTracks();
+    };
+
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(create);
+    formContent.appendChild(inputContainer);
+
+    const close = document.createElement("button");
+    close.className = "close-btn";
+    close.textContent = "✕ Close";
+
+    close.onclick = () => {
+        closePlaylistForm();
+    };
+
+    formContent.appendChild(close);
+
+    container.appendChild(formContent);
+}
+
+function addToPlaylist(trackId, trackName, playListName) {
+
+    let playlist =
+    JSON.parse(localStorage.getItem(playListName)) || [];
+
+    if (playlist.includes(trackId)) {
+
+        playlist =
+            playlist.filter(id => id !== trackId);
+    }
+    else {
+
+        playlist.push(trackId);
+    }
+
+    localStorage.setItem(
+        playListName,
+        JSON.stringify(playlist)
+    );
+
+    renderTracks();
+}
+
+
+function toggleLike(trackId) {
+
+    if (likedSongs.includes(trackId)) {
+
+        likedSongs =
+            likedSongs.filter(id => id !== trackId);
+    }
+    else {
+
+        likedSongs.push(trackId);
+    }
+
+    localStorage.setItem(
+        "likedSongs",
+        JSON.stringify(likedSongs)
+    );
+
+    renderTracks();
+}
+
+
+function addToQueue(id, name) {
+
+    queue.push({
+        id,
+        name
+    });
+
+    updateQueueUI();
+
+    // autoplay first song
+    if (queue.length === 1) {
+        playTrack(0);
+    }
+}
+
+
+function updateQueueUI() {
+
+    const list =
+        document.getElementById("queueList");
+
+    list.innerHTML = "";
+
+    queue.forEach((track, index) => {
+
+        const li = document.createElement("li");
+
+        li.textContent = track.name;
+
+        if (index === currentIndex) {
+            li.style.fontWeight = "bold";
+        }
+
+        list.appendChild(li);
+    });
+}
+
+
+function playTrack(index) {
+
+    if (index < 0 || index >= queue.length)
+        return;
+
+    currentIndex = index;
+
+    const track = queue[index];
+
+    const audio =
+        document.getElementById("audioPlayer");
+
+    audio.src = `/track/${track.id}`;
+
+    audio.play();
+
+    updateQueueUI();
+}
+
+
+function playNext() {
+
+    if (currentIndex + 1 >= queue.length)
+        return;
+
+    playTrack(currentIndex + 1);
+}
+
+
+function clearQueue() {
+
+    queue = [];
+
+    currentIndex = -1;
+
+    const audio =
+        document.getElementById("audioPlayer");
+
+    audio.pause();
+
+    audio.src = "";
+
+    updateQueueUI();
+}
+
+function resetApp() {
+    if (confirm("Are you sure you want to reset the app? This will clear all playlists and liked songs.")) {
+        localStorage.clear();
+        likedSongs = [];
+        playlists = [];
+        queue = [];
+        currentIndex = -1;
+
+        const audio = document.getElementById("audioPlayer");
+        audio.pause();
+        audio.src = "";
+
+        renderTracks();
+        updateQueueUI();
+        closePlaylistForm();
+    }
+}
+
+// AUTO NEXT SONG
+document
+    .getElementById("audioPlayer")
+    .addEventListener("ended", () => {
+
+        // remove the song that just finished
+        queue.splice(currentIndex, 1);
+
+        // play next song
+        if (queue.length > 0) {
+
+            // if currentIndex is now out of bounds
+            // move back one
+            if (currentIndex >= queue.length) {
+                currentIndex = queue.length - 1;
+            }
+
+            playTrack(currentIndex);
+        }
+        else {
+
+            currentIndex = -1;
+
+            updateQueueUI();
+        }
+    });
+
+// Close overlay with Escape key
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        closePlaylistForm();
+    }
+});
+
+// INITIAL LOAD
+renderTracks();
+
+</script>
 
 </body>
 </html>

@@ -1,102 +1,111 @@
-# Scenario: Mini Shop Ordering System
-# Program summary: Lets a user add items to a shopping cart, view the cart, and checkout. Also allows a user to login as admin (password 1234) and add new items to the menu
-# Datatypes used: int, float, str, bool, list
-# Validation: menu choice validation, quantity validation, empty name validation
-
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, send_from_directory, jsonify, request, redirect, session
+import os
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-def create_app():
-    app = Flask(__name__)
-    return app
+MUSIC_FOLDER = "static/music"
 
-#This code creates a map for the menu, containing a list of names and prices
-menu = {
-    "Burger": 5.99,
-    "Pizza": 8.49,
-    "Fries": 3.49,
-    "Soda": 1.99
-}
+USERNAME = "admin"
+PASSWORD = "1234"
 
-#creates an empty cart that the user can fill
-cart = []
+#Loops through all songs in the folder and organizes them, extracting the id, name, and file name
+def load_tracks():
+    mp3_files = sorted([
+        f for f in os.listdir(MUSIC_FOLDER)
+        if f.endswith(".mp3")
+    ])
 
-#renders the home page html file, and passes in our pre set menu
+    return [
+        {
+            "id": i,
+            "name": f[:-4],
+            "file": f
+        }
+        for i, f in enumerate(mp3_files)
+    ]
+
+
+#LOGIN PAGE
 @app.route("/")
-def home():
-    return render_template("index.html", menu=menu)
+def login_page():
+    if session.get("logged_in"):
+        return redirect("/home")
 
-#allows a user to login with the password "1234"
+    return render_template("login.html")
+
+
+# LOGIN HANDLER
 @app.route("/login", methods=["POST"])
 def login():
-    password = request.form.get("passcode")
-    if password == "1234":
-        return render_template("admin.html")
-    else:
+
+    username = request.form["username"]
+    password = request.form["password"]
+
+    #Checks if username and password is correct
+    if username == USERNAME and password == PASSWORD:
+        session["logged_in"] = True
+        return redirect("/home")
+
+    #If incorrect, return an error
+    return render_template(
+        "login.html",
+        error="Invalid credentials"
+    )
+
+
+# HOME
+@app.route("/home")
+def home():
+
+    if not session.get("logged_in"):
         return redirect("/")
 
-#allows a admin user to add an item to the menu
-@app.route("/addMenu", methods=["POST"])
-def addMenu():
-    itemName = request.form.get("itemName")
-    price = request.form.get("price")
+    return render_template(
+        "index.html",
+        tracks=load_tracks()
+    )
 
-    menu[itemName] = round(float(price),2)
+
+# LOGOUT
+@app.route("/logout")
+def logout():
+
+    session.clear()
 
     return redirect("/")
 
-#allows a regular user to add items to the cart
-@app.route("/add", methods=["POST"])
-def add_item():
-    item = request.form.get("item")
-    quantity = request.form.get("quantity")
 
-    # Validation
-    if not quantity.isdigit():
-        return redirect("/")
+# STREAM SONG
+@app.route("/track/<int:track_id>")
+def get_track(track_id):
 
-    quantity = int(quantity)
+    if not session.get("logged_in"):
+        return "Unauthorized", 401
 
-    if quantity <= 0:
-        return redirect("/")
+    tracks = load_tracks()
 
-    price = menu[item]
-    total = price * quantity
+    if track_id < 0 or track_id >= len(tracks):
+        return "Track not found", 404
 
-    cart.append({
-        "name": item,
-        "quantity": quantity,
-        "price": price,
-        "total": total
-    })
+    filename = tracks[track_id]["file"]
 
-    return redirect("/cart")
+    return send_from_directory(
+        MUSIC_FOLDER,
+        filename,
+        mimetype="audio/mp3"
+    )
 
 
-#renders the cart page and what is inside it
-@app.route("/cart")
-def view_cart():
-    total_cost = sum(item["total"] for item in cart)
-    tax = round(0.12 * total_cost,2)
-    final_cost = round(total_cost + tax,2)
-    return render_template("cart.html", cart=cart, total=total_cost, tax=tax, final_cost=final_cost)
+# TRACK LIST API
+@app.route("/tracks")
+def get_tracks():
 
-#the checkout action, redirecting to the checkout page and calculating sums
-@app.route("/checkout", methods=["POST"])
-def checkout():
-    name = request.form.get("name")
+    if not session.get("logged_in"):
+        return jsonify([])
 
-    if name.strip() == "":
-        return redirect("/cart")
+    return jsonify(load_tracks())
 
-    total_cost = round(sum(item["total"] for item in cart), 2)
-    tax = round(0.12 * total_cost, 2)
-    final_cost = round(total_cost + tax, 2)
-
-    cart.clear()
-
-    return render_template("checkout.html", name=name, total=total_cost, tax=tax, final_cost=final_cost)
 
 if __name__ == "__main__":
     app.run(debug=True)
